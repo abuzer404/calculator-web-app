@@ -19,6 +19,9 @@
   --icon-fill: #FFFFFF;
   --slider-bg: #616161;
   --slider-checked-bg: #4caf50;
+  --history-bg: #22252D;
+  --history-text-color: #ccc;
+  --history-hover-bg: #3a3f47;
 }
 
 /* Light Theme */
@@ -42,6 +45,9 @@ body[data-theme="light"] {
   --icon-fill: #333333;
   --slider-bg: #cccccc;
   --slider-checked-bg: #4caf50;
+  --history-bg: #f5f5f5;
+  --history-text-color: #555;
+  --history-hover-bg: #e0e0e0;
 }
 
 
@@ -54,6 +60,8 @@ body {
   min-height: 100vh;
   background-color: var(--bg-color);
   transition: background-color 0.3s ease;
+  padding: 1rem 0;
+  box-sizing: border-box;
 }
 
 .calculator-container {
@@ -63,7 +71,7 @@ body {
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     width: 90vw;
     max-width: 320px;
-    transition: background-color 0.3s ease;
+    transition: all 0.3s ease;
 }
 
 .calculator {
@@ -74,10 +82,10 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 5px;
+    padding: 0 5px 10px;
 }
 
-/* Theme Toggle */
+/* Theme Toggle & History Button */
 .theme-toggle-btn {
     background: none;
     border: none;
@@ -108,7 +116,6 @@ body[data-theme="light"] .theme-toggle-btn .icon-moon { display: none; }
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-bottom: 20px;
     color: var(--text-color);
     font-size: 0.8em;
 }
@@ -135,7 +142,7 @@ input:checked + .slider:before { transform: translateX(20px); }
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    transition: all 0.3s ease;
 }
 
 .previous-operand { font-size: 1.2em; opacity: 0.7; height: 25px; }
@@ -156,7 +163,7 @@ button {
     cursor: pointer;
     background-color: var(--btn-bg);
     color: var(--text-color);
-    transition: background-color 0.2s, transform 0.1s;
+    transition: background-color 0.2s, transform 0.1s, padding 0.2s ease, font-size 0.2s ease;
     outline: none;
     -webkit-tap-highlight-color: transparent; /* For mobile */
 }
@@ -175,25 +182,133 @@ button:active { transform: scale(0.95); }
 [data-action="delete"] { background-color: var(--del-bg); color: var(--operator-text-color); }
 [data-action="delete"]:hover { background-color: var(--del-hover-bg); }
 
-
 .span-two { grid-column: span 2; }
+
 .scientific { display: none; }
-.calculator.scientific-mode .scientific { display: grid; }
+/* When in scientific mode, the scientific buttons are made visible and will flow into the grid */
+.calculator.scientific-mode .scientific { display: block; }
 
 
-/* Responsive adjustments */
-@media (max-height: 740px) {
-    .calculator .buttons-grid { gap: 8px; }
-    .calculator button { font-size: 1.1em; padding: 12px 0; }
-    .calculator .display { padding: 10px 15px; min-height: 75px; }
-    .calculator .current-operand { font-size: 2.1em; }
-    .calculator .previous-operand { font-size: 1.1em; }
-    .toggle-switch { margin-bottom: 15px; }
+/* History Panel */
+.history-panel {
+    background-color: var(--history-bg);
+    border-radius: 10px;
+    margin-top: 15px;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease-in-out, padding 0.5s ease-in-out;
+    padding: 0 15px;
+}
+.calculator-container.history-visible .history-panel {
+    max-height: 200px; /* Adjust as needed */
+    padding: 15px;
+}
+.history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text-color);
+    margin-bottom: 10px;
+}
+.history-header h3 {
+    margin: 0;
+    font-size: 1em;
+    font-weight: 500;
+}
+#clear-history-btn {
+    background: none;
+    border: none;
+    color: var(--operator-bg);
+    cursor: pointer;
+    font-size: 0.9em;
+    padding: 5px;
+}
+.history-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    height: 100%;
+    max-height: 150px;
+    overflow-y: auto;
+    color: var(--history-text-color);
+}
+.history-list li {
+    padding: 8px 5px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1.1em;
+    text-align: right;
+    word-break: break-all;
+}
+.history-list li:hover {
+    background-color: var(--history-hover-bg);
+    color: var(--text-color);
 }
 
-@media (max-height: 660px) {
-    .calculator .buttons-grid { gap: 5px; }
-    .calculator button { font-size: 1em; padding: 8px 0; }
-    .toggle-switch { margin-bottom: 10px; }
-    .calculator .display { padding: 10px; margin-bottom: 10px; }
+
+/* 
+  Responsive Adjustments 
+  To prevent the calculator from overflowing on shorter screens, especially in
+  scientific mode, we reduce the size of buttons and spacing at different
+  viewport height breakpoints.
+*/
+
+/* On medium-height screens, only shrink scientific mode to make it fit */
+@media (max-height: 820px) {
+    .calculator.scientific-mode .buttons-grid {
+        gap: 8px;
+    }
+    .calculator.scientific-mode button {
+        font-size: 1.1em;
+        padding: 13px 0;
+    }
+    .calculator.scientific-mode .display {
+        min-height: 80px;
+    }
+     .calculator.scientific-mode .current-operand {
+        font-size: 2.2em;
+    }
+}
+
+/* On short screens, shrink both modes, but shrink scientific mode even more */
+@media (max-height: 680px) {
+    /* General shrinkage for basic mode */
+    .buttons-grid {
+        gap: 8px;
+    }
+    button {
+        font-size: 1.1em;
+        padding: 12px 0;
+    }
+    .display {
+        padding: 10px 15px;
+        min-height: 75px;
+        margin-bottom: 15px;
+    }
+    .current-operand {
+        font-size: 2.1em;
+    }
+    .previous-operand {
+        font-size: 1.1em;
+    }
+
+    /* Extra shrinkage for scientific mode */
+    .calculator.scientific-mode .buttons-grid {
+        gap: 5px;
+    }
+    .calculator.scientific-mode button {
+        font-size: 1em;
+        padding: 9px 0;
+    }
+}
+
+/* On very short screens, make both modes very compact */
+@media (max-height: 600px) {
+     button {
+        padding: 8px 0;
+        font-size: 1em;
+     }
+     .display {
+        margin-bottom: 10px;
+     }
 }

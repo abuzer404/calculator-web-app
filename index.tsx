@@ -3,14 +3,19 @@ import './index.css';
 class Calculator {
     private previousOperandTextElement: HTMLElement;
     private currentOperandTextElement: HTMLElement;
+    private historyListElement: HTMLElement;
+
     private currentOperand: string = '';
     private previousOperand: string = '';
     private operation: string | null = null;
     private readyToReset: boolean = false;
+    private history: { entry: string, result: string }[] = [];
 
-    constructor(previousOperandTextElement: HTMLElement, currentOperandTextElement: HTMLElement) {
+    constructor(previousOperandTextElement: HTMLElement, currentOperandTextElement: HTMLElement, historyListElement: HTMLElement) {
         this.previousOperandTextElement = previousOperandTextElement;
         this.currentOperandTextElement = currentOperandTextElement;
+        this.historyListElement = historyListElement;
+        this.loadHistory();
         this.clear();
     }
 
@@ -110,7 +115,11 @@ class Calculator {
             return;
         }
 
-        this.currentOperand = this.formatNumber(computation);
+        const resultString = this.formatNumber(computation);
+        const historyEntry = `${this.previousOperand} ${this.operation?.replace('xʸ','^')} ${this.currentOperand} =`;
+        this.addToHistory(historyEntry, resultString);
+
+        this.currentOperand = resultString;
         this.operation = null;
         this.previousOperand = '';
         this.readyToReset = true;
@@ -119,30 +128,33 @@ class Calculator {
     
     handleScientific(func: string) {
         if (this.currentOperand === 'Error') this.clear();
-
+        
+        const originalOperand = this.currentOperand;
         const current = parseFloat(this.currentOperand);
-        if (isNaN(current) && func !== 'pi' && func !== 'e') return;
+        if (isNaN(current) && !['pi', 'e'].includes(func)) return;
+
         let result: number;
+        let historyEntry: string = '';
 
         const factorial = (n: number): number => {
             if (n < 0 || n % 1 !== 0) return NaN;
-            if (n > 170) return Infinity; // Prevent call stack overflow and handle large numbers
+            if (n > 170) return Infinity; 
             if (n === 0 || n === 1) return 1;
             return n * factorial(n - 1);
         };
         
         switch(func) {
-            case 'sq': result = Math.pow(current, 2); break;
-            case 'sqrt': result = Math.sqrt(current); break;
-            case 'inv': result = 1 / current; break;
-            case 'sin': result = Math.sin(current * Math.PI / 180); break;
-            case 'cos': result = Math.cos(current * Math.PI / 180); break;
-            case 'tan': result = Math.tan(current * Math.PI / 180); break;
-            case 'log10': result = Math.log10(current); break;
-            case 'ln': result = Math.log(current); break;
-            case 'fact': result = factorial(current); break;
-            case 'pi': this.currentOperand = Math.PI.toString(); this.updateDisplay(); return;
-            case 'e': this.currentOperand = Math.E.toString(); this.updateDisplay(); return;
+            case 'sq': result = Math.pow(current, 2); historyEntry = `sq(${originalOperand}) =`; break;
+            case 'sqrt': result = Math.sqrt(current); historyEntry = `√(${originalOperand}) =`; break;
+            case 'inv': result = 1 / current; historyEntry = `1/(${originalOperand}) =`; break;
+            case 'sin': result = Math.sin(current * Math.PI / 180); historyEntry = `sin(${originalOperand}) =`; break;
+            case 'cos': result = Math.cos(current * Math.PI / 180); historyEntry = `cos(${originalOperand}) =`; break;
+            case 'tan': result = Math.tan(current * Math.PI / 180); historyEntry = `tan(${originalOperand}) =`; break;
+            case 'log10': result = Math.log10(current); historyEntry = `log(${originalOperand}) =`; break;
+            case 'ln': result = Math.log(current); historyEntry = `ln(${originalOperand}) =`; break;
+            case 'fact': result = factorial(current); historyEntry = `fact(${originalOperand}) =`; break;
+            case 'pi': this.currentOperand = Math.PI.toString(); this.addToHistory('π =', this.currentOperand); this.readyToReset = true; this.updateDisplay(); return;
+            case 'e': this.currentOperand = Math.E.toString(); this.addToHistory('e =', this.currentOperand); this.readyToReset = true; this.updateDisplay(); return;
             case 'pow': this.chooseOperation('xʸ'); return;
             default: return;
         }
@@ -152,7 +164,9 @@ class Calculator {
             return;
         }
         
-        this.currentOperand = this.formatNumber(result);
+        const resultString = this.formatNumber(result);
+        this.addToHistory(historyEntry, resultString);
+        this.currentOperand = resultString;
         this.readyToReset = true;
         this.updateDisplay();
     }
@@ -181,6 +195,64 @@ class Calculator {
             this.previousOperandTextElement.innerText = '';
         }
     }
+    
+    // --- History Methods ---
+    loadHistory() {
+        const savedHistory = localStorage.getItem('calculator-history');
+        if (savedHistory) {
+            this.history = JSON.parse(savedHistory);
+        }
+        this.updateHistoryDisplay();
+    }
+
+    saveHistory() {
+        localStorage.setItem('calculator-history', JSON.stringify(this.history));
+    }
+
+    addToHistory(entry: string, result: string) {
+        this.history.unshift({ entry, result });
+        if (this.history.length > 50) { // Limit history size
+            this.history.pop();
+        }
+        this.saveHistory();
+        this.updateHistoryDisplay();
+    }
+    
+    clearHistory() {
+        this.history = [];
+        this.saveHistory();
+        this.updateHistoryDisplay();
+    }
+    
+    private setCurrentOperand(value: string) {
+        if(value === 'Error') return;
+        this.currentOperand = value;
+        this.previousOperand = '';
+        this.operation = null;
+        this.readyToReset = true;
+        this.updateDisplay();
+    }
+
+    updateHistoryDisplay() {
+        this.historyListElement.innerHTML = '';
+        if(this.history.length === 0) {
+            const li = document.createElement('li');
+            li.style.textAlign = 'center';
+            li.style.opacity = '0.5';
+            li.innerText = 'History is empty';
+            this.historyListElement.appendChild(li);
+            return;
+        }
+        this.history.forEach(item => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span style="opacity: 0.7">${item.entry}</span><br>${item.result}`;
+            li.dataset.result = item.result;
+            li.addEventListener('click', () => {
+                this.setCurrentOperand(item.result);
+            });
+            this.historyListElement.appendChild(li);
+        });
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -195,10 +267,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const previousOperandTextElement = document.querySelector<HTMLElement>('[data-previous-operand]')!;
     const currentOperandTextElement = document.querySelector<HTMLElement>('[data-current-operand]')!;
+    const historyListElement = document.getElementById('history-list') as HTMLElement;
     const calculatorElement = document.getElementById('calculator')!;
     const modeToggle = document.getElementById('mode-toggle') as HTMLInputElement;
 
-    const calculator = new Calculator(previousOperandTextElement, currentOperandTextElement);
+    const calculator = new Calculator(previousOperandTextElement, currentOperandTextElement, historyListElement);
 
     numberButtons.forEach(button => {
         button.addEventListener('click', () => calculator.appendNumber(button.innerText));
@@ -257,6 +330,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const newTheme = document.body.dataset.theme === 'light' ? 'dark' : 'light';
         applyTheme(newTheme);
     });
+
+    // History panel logic
+    const historyToggle = document.getElementById('history-toggle') as HTMLButtonElement;
+    const calculatorContainer = document.getElementById('calculator-container') as HTMLElement;
+    const clearHistoryBtn = document.getElementById('clear-history-btn') as HTMLButtonElement;
+    
+    historyToggle.addEventListener('click', () => {
+        calculatorContainer.classList.toggle('history-visible');
+    });
+    
+    clearHistoryBtn.addEventListener('click', () => {
+        calculator.clearHistory();
+    });
+
 
     // Load initial theme
     const savedTheme = localStorage.getItem('calculator-theme');
